@@ -34,8 +34,8 @@ i2s_config_t i2s_get_default_config(void) {
     i2s_config_t i2s_config = {
 		.sample_freq = 44100, 
 		.channel_count = 2,
-		.data_pin = 9,
-		.clock_pin_base = 10,
+		.data_pin = 17,
+		.clock_pin_base = 18,
 		.pio = pio1,
 		.sm = 1,
         .dma_channel = 0,
@@ -64,9 +64,11 @@ void i2s_init(i2s_config_t *i2s_config) {
 
     audio_i2s_program_init(i2s_config->pio, i2s_config->sm , offset, i2s_config->data_pin , i2s_config->clock_pin_base);
     
-    /* Set PIO clock */
+    /* Set PIO clock.
+     * 32-bit slots are 64 BCLK per stereo frame (two PIO cycles per bit), so the
+     * divider is half of the original 16-bit-slot program. Matches picoTracker. */
     uint32_t system_clock_frequency = clock_get_hz(clk_sys);
-    uint32_t divider = system_clock_frequency * 4 / i2s_config->sample_freq; // avoid arithmetic overflow
+    uint32_t divider = system_clock_frequency * 2 / i2s_config->sample_freq;
     pio_sm_set_clkdiv_int_frac(i2s_config->pio, i2s_config->sm , divider >> 8u, divider & 0xffu);
 
     pio_sm_set_enabled(i2s_config->pio, i2s_config->sm, false);

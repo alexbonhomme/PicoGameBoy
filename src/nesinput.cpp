@@ -292,7 +292,7 @@ void NESInput::restartGameCallback() {
 
 void NESInput::loadAndReset() {
   Serial.printf("loadAndReset\n");
-  uint8_t* romPtr;
+  const uint8_t* romPtr;
 
 #if ENABLE_RP2040_PSRAM
   romPtr = psram_rom;

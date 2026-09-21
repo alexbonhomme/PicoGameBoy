@@ -38,14 +38,23 @@ void CardService::initSDCard() {
   _nesConfig.fileExt[0] = ".nes";
   _nesConfig.fileExt[1] = nullptr;
   _nesConfig.fileExt[2] = nullptr; // 标记结束
-  _currentConfig = _nesConfig;
+  _currentConfig = _gbConfig;
 }
 
 bool CardService::initSDCard_hardware() {
+  // DAT1/DAT2 must stay high so the card accepts SPI mode on an SDIO socket.
+  gpio_init(SD_D1_PIN);
+  gpio_set_dir(SD_D1_PIN, GPIO_IN);
+  gpio_pull_up(SD_D1_PIN);
+  gpio_init(SD_D2_PIN);
+  gpio_set_dir(SD_D2_PIN, GPIO_IN);
+  gpio_pull_up(SD_D2_PIN);
+
   SD_SPI.setMISO(SD_MISO_PIN);
   SD_SPI.setMOSI(SD_MOSI_PIN);
   SD_SPI.setSCK(SD_SCK_PIN);
-  bool success = sd.begin(SdSpiConfig(SD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(50), &SD_SPI));
+  // Display uses PIO, so this SPI port is not shared.
+  bool success = sd.begin(SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(50), &SD_SPI));
   return success;
 }
 

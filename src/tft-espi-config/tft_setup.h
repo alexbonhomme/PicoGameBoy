@@ -100,14 +100,14 @@
 // driven with a PWM signal or turned OFF/ON then this must be handled by the user
 // sketch. e.g. with digitalWrite(TFT_BL, LOW);
 
-// #define TFT_BL   32            // LED back-light control pin
-// #define TFT_BACKLIGHT_ON HIGH  // Level to turn ON back-light (HIGH or LOW)
-// ==== SPI 接口定义 ====
-#define TFT_MOSI  3     // LCD SDI
-#define TFT_SCLK  2     // LCD CLK
-#define TFT_CS    4     // LCD CS
-#define TFT_DC    7     // LCD RS (Data/Command)
-#define TFT_RST   8     // LCD RST
+// PicoTracker ILI9341 (CR2013-MI2120). Backlight on GP28 is active high.
+#define TFT_BL   28
+#define TFT_BACKLIGHT_ON HIGH
+#define TFT_MOSI  27    // LCD_MOSI
+#define TFT_SCLK  26    // LCD_SCK
+#define TFT_CS    20    // LCD_CS
+#define TFT_DC    21    // LCD_CC
+#define TFT_RST   22    // LCD_RST
 //#define TOUCH_CS -1    // Touch screen CS pin (not used)
 #define DISABLE_ALL_LIBRARY_WARNINGS
 #ifdef TFT_PARALLEL_16_BIT

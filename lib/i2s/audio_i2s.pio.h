@@ -13,28 +13,41 @@
 // --------- //
 
 #define audio_i2s_wrap_target 0
-#define audio_i2s_wrap 7
+#define audio_i2s_wrap 15
+#define audio_i2s_pio_version 0
 
-#define audio_i2s_offset_entry_point 7u
+#define audio_i2s_offset_entry_point 0u
 
 static const uint16_t audio_i2s_program_instructions[] = {
             //     .wrap_target
-    0x7001, //  0: out    pins, 1         side 2     
-    0x1840, //  1: jmp    x--, 0          side 3     
-    0x6001, //  2: out    pins, 1         side 0     
-    0xe82e, //  3: set    x, 14           side 1     
-    0x6001, //  4: out    pins, 1         side 0     
-    0x0844, //  5: jmp    x--, 4          side 1     
-    0x7001, //  6: out    pins, 1         side 2     
-    0xf82e, //  7: set    x, 14           side 3     
+    0xf82e, //  0: set    x, 14           side 3
+    0x7001, //  1: out    pins, 1         side 2
+    0x1841, //  2: jmp    x--, 1          side 3
+    0x7001, //  3: out    pins, 1         side 2
+    0xf84e, //  4: set    y, 14           side 3
+    0xf000, //  5: set    pins, 0         side 2
+    0x1885, //  6: jmp    y--, 5          side 3
+    0xe000, //  7: set    pins, 0         side 0
+    0xe82e, //  8: set    x, 14           side 1
+    0x6001, //  9: out    pins, 1         side 0
+    0x0849, // 10: jmp    x--, 9          side 1
+    0x6001, // 11: out    pins, 1         side 0
+    0xe84e, // 12: set    y, 14           side 1
+    0xe000, // 13: set    pins, 0         side 0
+    0x088d, // 14: jmp    y--, 13         side 1
+    0xf000, // 15: set    pins, 0         side 2
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program audio_i2s_program = {
     .instructions = audio_i2s_program_instructions,
-    .length = 8,
+    .length = 16,
     .origin = -1,
+    .pio_version = audio_i2s_pio_version,
+#if PICO_PIO_VERSION > 0
+    .used_gpio_ranges = 0x0
+#endif
 };
 
 static inline pio_sm_config audio_i2s_program_get_default_config(uint offset) {
@@ -47,6 +60,7 @@ static inline pio_sm_config audio_i2s_program_get_default_config(uint offset) {
 static inline void audio_i2s_program_init(PIO pio, uint sm, uint offset, uint data_pin, uint clock_pin_base) {
     pio_sm_config sm_config = audio_i2s_program_get_default_config(offset);
     sm_config_set_out_pins(&sm_config, data_pin, 1);
+    sm_config_set_set_pins(&sm_config, data_pin, 1);
     sm_config_set_sideset_pins(&sm_config, clock_pin_base);
     sm_config_set_out_shift(&sm_config, false, true, 32);
     pio_sm_init(pio, sm, offset, &sm_config);
@@ -57,3 +71,4 @@ static inline void audio_i2s_program_init(PIO pio, uint sm, uint offset, uint da
 }
 
 #endif
+

@@ -31,29 +31,34 @@
 #define PIN_SELECT	6
 #define PIN_START	7
 #elif ENABLE_INPUT == INPUT_GPIO
-// Use GPIOs directly on Pico for Joypad
-#define PIN_UP		 17
-#define PIN_DOWN	 19
-#define PIN_LEFT	 16
-#define PIN_RIGHT	 18
-#define PIN_A		   21
-#define PIN_B		   20
-#define PIN_SELECT 22
-#define PIN_START	 26
+// PicoTracker through-hole buttons. Active low, internal pull-ups.
+// SW5 RT (GP15) is unused.
+#define PIN_UP		 11  // SW4 UP
+#define PIN_DOWN	  9  // SW2 DOWN
+#define PIN_LEFT	  8  // SW1 LEFT
+#define PIN_RIGHT	 10  // SW3 RIGHT
+#define PIN_A		  14  // SW7 A
+#define PIN_B		  13  // SW6 B
+#define PIN_SELECT	 12  // SW8 LT
+#define PIN_START	 16  // SW9 PLAY
 #endif
 
 #if ENABLE_SOUND
-#define I2S_DIN_PIN 9
-#define I2S_BCLK_LRC_PIN_BASE 10
-// LRC = 11
+// GY-PCM5102: DIN, BCK, LRCK. BCK and LRCK must be consecutive.
+#define I2S_DIN_PIN 17
+#define I2S_BCLK_LRC_PIN_BASE 18
+// LRCK = 19
 #endif
 
 #if ENABLE_SDCARD
-#define SD_SPI SPI1
-#define SD_CS_PIN   13  //17
-#define SD_SCK_PIN  14  //18
-#define SD_MOSI_PIN 15  //19
-#define SD_MISO_PIN 12  //16
+// The socket is wired for SDIO. SPI mode uses CMD/CLK/D0/D3; D1 and D2 stay pulled up.
+#define SD_SPI SPI
+#define SD_CS_PIN   7   // SD_D3
+#define SD_SCK_PIN  2   // SD_CLK
+#define SD_MOSI_PIN 3   // SD_SI / CMD
+#define SD_MISO_PIN 4   // SD_D0
+#define SD_D1_PIN   5
+#define SD_D2_PIN   6
 
 extern uint8_t _FS_start;
 extern uint8_t _FS_end;
