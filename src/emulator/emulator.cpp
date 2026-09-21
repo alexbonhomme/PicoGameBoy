@@ -48,7 +48,8 @@ void Emulator::applyColorSchemeCallback() {
 void Emulator::saveRealtimeGameCallback() {
 }
 
-void Emulator::saveRamCallback() {
+bool Emulator::saveRamCallback() {
+  return false;
 }
 
 void Emulator::loadRamCallback() {

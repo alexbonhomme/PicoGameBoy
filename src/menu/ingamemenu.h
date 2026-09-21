@@ -16,7 +16,7 @@ public:
   void setApplyColorSchemeCallback(std::function<void()> applyColorSchemeCallback);
   void setSaveRealtimeGameCallback(std::function<void()> saveRealtimeGameCallback);
   void setLoadRealtimeGameCallback(std::function<void()> loadRealtimeGameCallback);
-  void setSaveRamCallback(std::function<void()> saveRamCallback);
+  void setSaveRamCallback(std::function<bool()> saveRamCallback);
   void setLoadRamCallback(std::function<void()> loadRamCallback);
   void setRestartGameCallback(std::function<void()> restartGameCallback);
 
@@ -36,7 +36,7 @@ protected:
   std::function<void()> _applyColorSchemeCallback;
   std::function<void()> _saveRealtimeGameCallback;
   std::function<void()> _loadRealtimeGameCallback;
-  std::function<void()> _saveRamCallback;
+  std::function<bool()> _saveRamCallback;
   std::function<void()> _loadRamCallback;
   std::function<void()> _restartGameCallback;
 };

@@ -40,17 +40,15 @@ The SD socket is wired for 4-bit SDIO. Firmware talks to it in SPI mode on SPI0 
 
 ## SD card
 
-Format the card FAT32. Put ROMs you legally own in a `/gb/` directory. Extensions are `.gb` and `.gbc`. Battery saves go in `/SAVES/`. Real-time states go in `/rtsav/`.
+Format the card FAT32. The original Pico-GB readme says to copy `.gb` and `.gbc` ROMs into the root of the card. This port's list opens on `/gb/`, so put the ROMs there. Select (LT) still switches the list to `/nes/`.
 
-Example: `/gb/crystal.gbc`.
-
-The file list opens on `/gb/`. Select (LT) still switches the list to `/nes/` if you have NES ROMs there.
+Save RAM writes one file, `/SAVES/<rom name>.sav`. The folder is created if it is missing. Example: `/gb/crystal.gbc` saves as `/SAVES/crystal.sav`. Real-time states go in `/rtsav/`.
 
 Loading a game copies the ROM into flash. The Pico 2 flash is rated for at least 100k erase cycles, which is fine for normal play and worth knowing if you relaunch the same game constantly.
 
 ## Controls
 
-- LT + PLAY: in-game menu
+- LT + PLAY: in-game menu. Save RAM writes `/SAVES/<rom>.sav`. Back to Game List reboots to this list
 - LT + B: cycle scale mode (pixel-perfect 160×144, aspect-correct, or stretched)
 - Hold LT while powering on: USB bootloader
 
@@ -64,7 +62,13 @@ PlatformIO environment `pico2-nopsram` is the default. It targets a Pico 2 with 
 pio run -e pico2-nopsram
 ```
 
-Hold BOOTSEL, connect USB, and copy `.pio/build/pico2-nopsram/*.uf2` to the RPI-RP2 drive.
+`pio run -e pico2-nopsram` only builds. Flash a running board the same way as play-control:
+
+```sh
+pio run -e pico2-nopsram -t upload
+```
+
+That uses picotool: it reboots the Pico 2 over USB and writes the UF2. Hold BOOTSEL while plugging in only if the board does not show up as a serial port.
 
 After the first flash, check that the image orientation matches the panel (picoTracker uses ILI9341 MADCTL `0x88`), that the buttons read the right way, that the SD card mounts, and that line-out audio is present.
 

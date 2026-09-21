@@ -96,7 +96,7 @@ void GameMenu::setLoadRealtimeGameCallback(std::function<void()> loadRealtimeGam
   _loadRealtimeGameCallback = loadRealtimeGameCallback;
 }
 
-void GameMenu::setSaveRamCallback(std::function<void()> saveRamCallback) {
+void GameMenu::setSaveRamCallback(std::function<bool()> saveRamCallback) {
   _saveRamCallback = saveRamCallback;
 }
 
@@ -131,12 +131,14 @@ void GameMenu::loadRealtimeGame() {
 }
 
 void GameMenu::saveRam() {
-  if (_saveRamCallback) {
-    _saveRamCallback();
-    tft.setTextColor(TFT_GREEN, TFT_DARKGREY);
-    tft.drawString("RAM Saved!", _menuX + 45, _menuY + _menuHeight - 50, FONT_ID);
-    delay(1000);
-  }
+  bool saved = _saveRamCallback && _saveRamCallback();
+  tft.setTextColor(saved ? TFT_GREEN : TFT_RED, TFT_DARKGREY);
+  tft.drawString(saved ? "RAM Saved!" : "RAM save failed", _menuX + 20, _menuY + _menuHeight - 70, FONT_ID);
+#if ENABLE_SDCARD
+  tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+  tft.drawString(srv.cardService.lastCartSavePath(), _menuX + 8, _menuY + _menuHeight - 45, FONT_ID);
+#endif
+  delay(1500);
 }
 void GameMenu::loadRam() {
   if (_loadRamCallback) {
@@ -212,7 +214,11 @@ bool GameMenu::onKeyDown() {
     }
   }
   if (PRESSED_KEY(ButtonID::BTN_A)) {
+    uint8_t item = currentMenuSelection;
     handleMenuSelection();
+    if (item == MENU_SAVERAM) {
+      return false;
+    }
     return true;
   }
   if (PRESSED_KEY(ButtonID::BTN_B)) {

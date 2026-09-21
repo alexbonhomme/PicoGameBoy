@@ -19,6 +19,11 @@ PSRAM
 #endif
 ;
 
+static bool cart_ram_dirty = false;
+static uint32_t cart_ram_dirty_since = 0;
+static uint32_t cart_ram_last_write = 0;
+static uint32_t cart_ram_retry_at = 0;
+
 // Definition of ROM data
 #if !ENABLE_SDCARD
 #include "game_bin.h"
@@ -71,6 +76,9 @@ static uint8_t gb_rom_read(struct gb_s* gb, const uint_fast32_t addr) {
  */
 static uint8_t gb_cart_ram_read(struct gb_s* gb, const uint_fast32_t addr) {
   (void)gb;
+  if (addr >= GB_RAM_SIZE) {
+    return 0xFF;
+  }
   return RS_ram[addr];
 }
 
@@ -79,7 +87,39 @@ static uint8_t gb_cart_ram_read(struct gb_s* gb, const uint_fast32_t addr) {
  */
 static void gb_cart_ram_write(struct gb_s* gb, const uint_fast32_t addr,
     const uint8_t val) {
+  (void)gb;
+  if (addr >= GB_RAM_SIZE) {
+    return;
+  }
   RS_ram[addr] = val;
+  uint32_t now = millis();
+  if (!cart_ram_dirty) {
+    cart_ram_dirty_since = now;
+  }
+  cart_ram_dirty = true;
+  cart_ram_last_write = now;
+}
+
+void gb_cart_ram_clear_dirty() {
+  cart_ram_dirty = false;
+}
+
+void gb_cart_ram_note_flush_failed() {
+  cart_ram_retry_at = millis() + 2000;
+}
+
+bool gb_cart_ram_should_flush(uint32_t quiet_ms, uint32_t max_delay_ms) {
+  if (!cart_ram_dirty) {
+    return false;
+  }
+  uint32_t now = millis();
+  if ((int32_t)(now - cart_ram_retry_at) < 0) {
+    return false;
+  }
+  if ((int32_t)(now - cart_ram_last_write) >= (int32_t)quiet_ms) {
+    return true;
+  }
+  return (int32_t)(now - cart_ram_dirty_since) >= (int32_t)max_delay_ms;
 }
 
 static void gb_error(struct gb_s* gb, const enum gb_error_e gb_err, const uint16_t addr) {

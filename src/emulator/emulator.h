@@ -21,7 +21,7 @@ private:
   virtual void applyColorSchemeCallback();
   virtual void saveRealtimeGameCallback();
   virtual void loadRealtimeGameCallback();
-  virtual void saveRamCallback();
+  virtual bool saveRamCallback();
   virtual void loadRamCallback();
   virtual void restartGameCallback();
 

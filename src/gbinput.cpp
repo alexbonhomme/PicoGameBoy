@@ -103,6 +103,14 @@ void GBInput::mainLoop() {
     handleJoypad();
     handleSerial();
 
+#if ENABLE_SDCARD
+    // Pokemon writes the party to cartridge RAM, then stops. Flush once that
+    // burst ends so a power cycle still finds the save.
+    if (gb_cart_ram_should_flush(100, 3000)) {
+      flushCartRam();
+    }
+#endif
+
 #if ENABLE_SOUND
     srv.soundService.handleSoundLoop();
 #endif
@@ -123,8 +131,19 @@ void GBInput::saveRealtimeGameCallback() {
 void GBInput::loadRealtimeGameCallback() {
   srv.cardService.load_state(&gb);
 }
-void GBInput::saveRamCallback() {
-  srv.cardService.write_cart_ram_file(&gb);
+bool GBInput::flushCartRam() {
+#if ENABLE_SDCARD
+  if (srv.cardService.write_cart_ram_file(&gb)) {
+    gb_cart_ram_clear_dirty();
+    return true;
+  }
+  gb_cart_ram_note_flush_failed();
+#endif
+  return false;
+}
+
+bool GBInput::saveRamCallback() {
+  return flushCartRam();
 }
 void GBInput::loadRamCallback() {
   srv.cardService.read_cart_ram_file(&gb);

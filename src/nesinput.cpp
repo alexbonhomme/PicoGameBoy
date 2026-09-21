@@ -278,8 +278,9 @@ void NESInput::loadRealtimeGameCallback() {
   }
 }
 
-void NESInput::saveRamCallback() {
+bool NESInput::saveRamCallback() {
   saveRealtimeGameCallback();
+  return true;
 }
 
 void NESInput::loadRamCallback() {

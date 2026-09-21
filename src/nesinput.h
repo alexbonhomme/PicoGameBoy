@@ -27,7 +27,7 @@ public:
 private:
   void saveRealtimeGameCallback() override;
   void loadRealtimeGameCallback() override;
-  void saveRamCallback() override;
+  bool saveRamCallback() override;
   void loadRamCallback() override;
   void restartGameCallback() override;
   void loadAndReset();

@@ -18,8 +18,9 @@ private:
   void applyColorSchemeCallback() override;
   void saveRealtimeGameCallback() override;
   void loadRealtimeGameCallback() override;
-  void saveRamCallback() override;
+  bool saveRamCallback() override;
   void loadRamCallback() override;
+  bool flushCartRam();
   void restartGameCallback() override;
 
 

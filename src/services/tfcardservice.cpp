@@ -27,6 +27,8 @@ void CardService::initSDCard() {
   }
 
   Serial.printf("SD-Card initialized: FAT-Type=%d\r\n", sd.vol()->fatType());
+  sd.mkdir("/SAVES");
+  sd.mkdir("/rtsav");
 
   _gbConfig.type = GameType_GB;
   _gbConfig.dir = "/gb/";
@@ -557,8 +559,13 @@ bool CardService::onNextPageCallback() {
 }
 void CardService::afterFileSelectedCallback() {
   /* copy the rom from the SD card to flash or PSRAM and start the game */
+  const char* selected = fileListMenu.getSelectedText();
+  if (selected) {
+    strncpy(_romFileName, selected, sizeof(_romFileName) - 1);
+    _romFileName[sizeof(_romFileName) - 1] = '\0';
+  }
   char filenameWithPath[MAX_PATH_LENGTH];
-  snprintf(filenameWithPath, sizeof(filenameWithPath), "%s%s", _currentConfig.dir, fileListMenu.getSelectedText());
+  snprintf(filenameWithPath, sizeof(filenameWithPath), "%s%s", _currentConfig.dir, _romFileName);
 
 #if ENABLE_RP2040_PSRAM
   load_cart_rom_file_to_PSRAM(filenameWithPath);
@@ -581,56 +588,151 @@ void CardService::onSelectKeyPressedCallback() {
   num_files = rom_file_selector_display_page(num_page);
 }
 
-void CardService::read_cart_ram_file(gb_s* gb) {
-  char filename[RAM_SAVENAME_LENGTH];
-  uint_fast32_t save_size;
-  FsFile file;
+// Appended after cartridge RAM so Gold/Silver/Crystal keep the clock across reboot.
+static const uint32_t CART_RTC_MAGIC = 0x31525443u;
 
-  gb_get_rom_name(gb, filename);
-  save_size = gb_get_save_size(gb);
+struct __attribute__((packed)) CartRtcSave {
+  uint32_t magic;
+  uint8_t rtc_real[5];
+  uint8_t rtc_latched[5];
+  uint32_t rtc_count;
+};
 
-  String f = String("SAVES/");
-  f.concat(filename);
-  f.toCharArray(filename, RAM_SAVENAME_LENGTH);
-
-  if (save_size > 0) {
-    if (!file.open(filename, O_RDONLY)) {
-      Serial.printf("E f_open(%s) error\r\n", filename);
-    } else {
-      file.read(RS_ram, file.size());
-    }
-
-    if (!file.close()) {
-      Serial.printf("E f_close error\r\n");
-    }
-  }
-
-  Serial.printf("I read_cart_ram_file(%s) COMPLETE (%lu bytes)\r\n", filename, save_size);
+static bool lfn_char_ok(unsigned char c) {
+  return c >= 0x20 && c < 0x80 && c != '"' && c != '*' && c != '/' && c != ':' && c != '<' && c != '>' && c != '?' && c != '\\' && c != '|';
 }
-void CardService::write_cart_ram_file(gb_s* gb) {
-  char filename[RAM_SAVENAME_LENGTH];
-  uint_fast32_t save_size;
+
+bool CardService::sav_base_name(gb_s* gb, char* name, size_t name_len) {
+  char raw[MAX_PATH_LENGTH];
+  raw[0] = '\0';
+  if (_romFileName[0] != '\0') {
+    strncpy(raw, _romFileName, sizeof(raw) - 1);
+    raw[sizeof(raw) - 1] = '\0';
+  } else if (gb) {
+    gb_get_rom_name(gb, raw);
+  }
+  if (raw[0] == '\0') {
+    return false;
+  }
+
+  char* slash = strrchr(raw, '/');
+  char* leaf = slash ? slash + 1 : raw;
+  char* dot = strrchr(leaf, '.');
+  if (dot && dot != leaf) {
+    *dot = '\0';
+  }
+
+  size_t out = 0;
+  for (char* p = leaf; *p && out + 1 < name_len; ++p) {
+    unsigned char c = (unsigned char)*p;
+    name[out++] = lfn_char_ok(c) ? (char)c : '_';
+  }
+  name[out] = '\0';
+  return out > 0;
+}
+
+static uint32_t cart_ram_bytes(gb_s* gb) {
+  uint32_t save_size = gb_get_save_size(gb);
+  if (save_size > GB_RAM_SIZE) {
+    save_size = GB_RAM_SIZE;
+  }
+  return save_size;
+}
+
+bool CardService::read_cart_file_at(gb_s* gb, const char* path, uint32_t save_size) {
   FsFile file;
+  if (!file.open(path, O_RDONLY)) {
+    return false;
+  }
 
-  gb_get_rom_name(gb, filename);
-  save_size = gb_get_save_size(gb);
+  memset(RS_ram, 0, save_size);
+  uint64_t file_size = file.fileSize();
+  uint32_t ram_bytes = file_size < save_size ? (uint32_t)file_size : save_size;
+  int read_bytes = file.read(RS_ram, ram_bytes);
 
-  String f = String("SAVES/");
-  f.concat(filename);
-  f.toCharArray(filename, RAM_SAVENAME_LENGTH);
-
-  if (save_size > 0) {
-    if (!file.open(filename, O_WRONLY | O_CREAT)) {
-      Serial.printf("E f_open(%s) error\r\n", filename);
-      return;
-    }
-
-    file.write(RS_ram, save_size);
-    if (!file.close()) {
-      Serial.printf("E f_close error\r\n");
+  if (file_size >= save_size + sizeof(CartRtcSave)) {
+    CartRtcSave rtc;
+    file.seekSet(save_size);
+    if (file.read(&rtc, sizeof(rtc)) == (int)sizeof(rtc) && rtc.magic == CART_RTC_MAGIC) {
+      memcpy(gb->rtc_real.bytes, rtc.rtc_real, sizeof(rtc.rtc_real));
+      memcpy(gb->rtc_latched.bytes, rtc.rtc_latched, sizeof(rtc.rtc_latched));
+      gb->counter.rtc_count = rtc.rtc_count;
     }
   }
 
-  Serial.printf("I write_cart_ram_file(%s) COMPLETE (%lu bytes)\r\n", filename, save_size);
+  if (!file.close()) {
+    Serial.printf("E f_close error\r\n");
+  }
+  Serial.printf("I read_cart_ram_file(%s) COMPLETE (%d bytes)\r\n", path, read_bytes);
+  return read_bytes > 0;
+}
+
+void CardService::read_cart_ram_file(gb_s* gb) {
+  char base[64];
+  char path[MAX_PATH_LENGTH];
+  uint32_t save_size = cart_ram_bytes(gb);
+  if (save_size == 0 || !sav_base_name(gb, base, sizeof(base))) {
+    return;
+  }
+
+  snprintf(path, sizeof(path), "/SAVES/%s.sav", base);
+  if (read_cart_file_at(gb, path, save_size)) {
+    return;
+  }
+
+  char title[17];
+  gb_get_rom_name(gb, title);
+  snprintf(path, sizeof(path), "/SAVES/%s", title);
+  if (!read_cart_file_at(gb, path, save_size)) {
+    Serial.printf("I no cart ram save for %s\r\n", base);
+  }
+}
+
+bool CardService::write_sav_file(const char* path, gb_s* gb, uint32_t save_size) {
+  FsFile file = sd.open(path, O_WRONLY | O_CREAT | O_TRUNC);
+  if (!file) {
+    Serial.printf("E f_open(%s) error\r\n", path);
+    return false;
+  }
+
+  CartRtcSave rtc;
+  rtc.magic = CART_RTC_MAGIC;
+  memcpy(rtc.rtc_real, gb->rtc_real.bytes, sizeof(rtc.rtc_real));
+  memcpy(rtc.rtc_latched, gb->rtc_latched.bytes, sizeof(rtc.rtc_latched));
+  rtc.rtc_count = gb->counter.rtc_count;
+
+  size_t wrote_ram = file.write(RS_ram, save_size);
+  size_t wrote_rtc = file.write(reinterpret_cast<const uint8_t*>(&rtc), sizeof(rtc));
+  bool synced = file.sync();
+  bool closed = file.close();
+  if (wrote_ram != save_size || wrote_rtc != sizeof(rtc) || !synced || !closed) {
+    Serial.printf("E write_sav_file(%s) failed\r\n", path);
+    return false;
+  }
+  Serial.printf("I write_sav_file(%s) COMPLETE (%lu bytes)\r\n", path, save_size);
+  return true;
+}
+
+bool CardService::write_cart_ram_file(gb_s* gb) {
+  char base[64];
+  uint32_t save_size = cart_ram_bytes(gb);
+  _lastSavePath[0] = '\0';
+
+  if (!sav_base_name(gb, base, sizeof(base))) {
+    strncpy(_lastSavePath, "no rom name", sizeof(_lastSavePath) - 1);
+    return false;
+  }
+  if (save_size == 0) {
+    strncpy(_lastSavePath, "header has no RAM", sizeof(_lastSavePath) - 1);
+    Serial.println("E cart header reports no RAM");
+    return false;
+  }
+
+  // mkdir returns false when the folder already exists.
+  if (!sd.exists("/SAVES")) {
+    sd.mkdir("/SAVES");
+  }
+  snprintf(_lastSavePath, sizeof(_lastSavePath), "/SAVES/%s.sav", base);
+  return write_sav_file(_lastSavePath, gb, save_size);
 }
 #endif

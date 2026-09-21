@@ -96,9 +96,11 @@ public:
   void read_cart_ram_file(struct gb_s* gb);
 
   /**
-   * Write a save file to the SD card
+   * Write cartridge RAM and the MBC3 clock to the SD card.
+   * Returns false when the card write fails.
    */
-  void write_cart_ram_file(struct gb_s* gb);
+  bool write_cart_ram_file(struct gb_s* gb);
+  const char* lastCartSavePath() const { return _lastSavePath; }
 
   bool onNextPageCallback();
   bool onPrevPageCallback();
@@ -158,6 +160,13 @@ protected:
 
   FileListConfig _gbConfig;
   FileListConfig _nesConfig;
+
+  char _romFileName[MAX_PATH_LENGTH] = {};
+  char _lastSavePath[MAX_PATH_LENGTH] = {};
+
+  bool sav_base_name(struct gb_s* gb, char* name, size_t name_len);
+  bool read_cart_file_at(struct gb_s* gb, const char* path, uint32_t save_size);
+  bool write_sav_file(const char* path, struct gb_s* gb, uint32_t save_size);
 };
 
 #endif

@@ -19,3 +19,9 @@ extern uint8_t RS_ram[GB_RAM_SIZE];
 
 void initGbContext();
 void gb_reset();
+
+// Cartridge RAM is battery-backed on a real cart. Mark writes so the SD
+// card copy can be updated after the game finishes a save.
+void gb_cart_ram_clear_dirty();
+void gb_cart_ram_note_flush_failed();
+bool gb_cart_ram_should_flush(uint32_t quiet_ms, uint32_t max_delay_ms);
